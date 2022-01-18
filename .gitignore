@@ -2,3 +2,4 @@ venv/
 *_venv/
 secret/
 .env
+ssh/
