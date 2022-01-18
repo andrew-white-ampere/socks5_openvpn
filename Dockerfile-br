@@ -1,0 +1,16 @@
+FROM wernight/dante
+
+RUN apk update
+
+RUN apk add openrc openssh openvpn --no-cache
+
+COPY vpn/brazil.ovpn /brazil.ovpn
+COPY vpn/secret/hmapass.txt /hmapass.txt
+
+COPY sshd_config /etc/ssh/sshd_config_set
+COPY startup.sh /startup.sh
+COPY ssh/gb_1.pub gb_1.pub
+
+RUN mkdir -p /root/.ssh/ && cat gb_1.pub >> /root/.ssh/authorized_keys 
+
+CMD ["/bin/sh", "/startup.sh"]

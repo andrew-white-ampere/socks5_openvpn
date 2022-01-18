@@ -1,0 +1,52 @@
+version: '3'
+
+services:
+  switch:
+    build:
+      context: .
+      dockerfile: Dockerfile-switch
+    cap_add:
+      - NET_ADMIN
+    network_mode: host
+    restart: always
+  gb_1:
+    build:
+      context: .
+      dockerfile: Dockerfile-gb
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+    networks:
+      socks_net:
+        ipv4_address: 172.22.7.2
+    env_file:
+      - .env
+    environment:
+      - OVPN=uk
+  br_1:
+    build:
+      context: .
+      dockerfile: Dockerfile-br
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+    networks:
+      socks_net:
+        ipv4_address: 172.22.2.18
+    env_file:
+      - .env
+    environment:
+      - OVPN=brazil
+
+networks:
+  socks_net:
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.22.0.0/16

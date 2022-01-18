@@ -1,0 +1,10 @@
+FROM ubuntu:18.04
+
+RUN apt-get update
+
+RUN apt-get install -y curl ssh
+
+COPY ssh/gb_1 /root/.ssh/id_rsa
+COPY ssh/gb_1.pub /root/.ssh/id_rsa.pub
+
+CMD ["tail", "-f", "/dev/null"]
