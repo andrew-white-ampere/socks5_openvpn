@@ -11,17 +11,11 @@ VPN_SOCKS_IPAM = docker.types.IPAMConfig(
 	)]
 )
 
-def list_networks(client):
-	return client.networks.list()
-
 def get_vpn_socks_net(client):
 	try:
 		return client.networks.get(VPN_SOCKS_NET)
 	except docker.errors.NotFound:
 		return None
-
-def get_default_net(client):
-	return client.networks.get('default')
 
 def create_vpn_socks_net(client):
 	if get_vpn_socks_net(client):
@@ -40,7 +34,11 @@ def create_vpn_socks_net(client):
 VPN_SOCKS_SWITCH = 'vpn_socks_switch'
 
 def build_vpn_socks_switch(client):
-	image, log = client.images.build(path='./dockerfiles', dockerfile='Dockerfile-switch', tag=VPN_SOCKS_SWITCH)
+	image, log = client.images.build(
+		path='./dockerfiles', 
+		dockerfile='Dockerfile-switch', 
+		tag=VPN_SOCKS_SWITCH
+	)
 	return ''.join(str(v) for l in log for v in l.values())
 
 def rebiuld_vpn_socks_switch(client):
@@ -69,7 +67,7 @@ def restart_vpn_socks_switch(client):
 		socks_switch.remove()
 		return restart_vpn_socks_switch(client)
 	
-	# If socks_net is not running, abort
+	# If socks_net does not exist, abort
 	socks_net = get_vpn_socks_net(client)
 	if not socks_net:
 		print(f'{VPN_SOCKS_NET} network does not exist.\nExiting')
@@ -99,7 +97,10 @@ def connect_to_switch(client, name, port):
 	switch.exec_run(f"./goproxy/proxy socks -t tcp -p '0.0.0.0:{port}' -T tcp -P {name}:{port} --log /tmp/{name}.log", detach=True)
 
 def disconnect_all_proxies(client):
-	pass
+	print('Disconnecting all proxies from switch')
+	switch = get_vpn_socks_switch(client)
+	# Kill any process that is listening on a tcp socket that has "proxy" in the program name
+	switch.exec_run(f"""kill -9 $(netstat -tulpn | awk '/proxy/{{split($7, a, "/"); print a[1]}};')""")
 
 ###
 
@@ -146,7 +147,7 @@ def run_vpn_socks_proxy(client, **kwargs):
 		VPN_SOCKS_PROXY,
 		name = name,
 		network = VPN_SOCKS_NET,
-		volumes = ['/home/andrew/code/scratchpad/docker_proxy/vpn:/vpn'], # this volume makes the .ovpn configs + auth files accessible
+		volumes = ['/home/andrew/code/scratchpad/docker_proxy/vpn:/vpn'], # this volume contains .ovpn files + auth files
 		devices = ['/dev/net/tun:/dev/net/tun'], # this device is necessary for openvpn to set up the tunnel
 		cap_add = ['NET_ADMIN'], # this is the minimum capability to allow connection to vpn
 		sysctls = {'net.ipv6.conf.all.disable_ipv6': 0}, # ipv6 is broken
