@@ -5,8 +5,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile-switch
-    cap_add:
-      - NET_ADMIN
     ports:
       - "50000-50999:50000-50999"
     networks:
