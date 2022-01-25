@@ -65,7 +65,7 @@ def restart_vpn_socks_switch(client):
 	if any(c.name == VPN_SOCKS_SWITCH for c in client.containers.list()):
 		print(f'Stopping {VPN_SOCKS_SWITCH}')
 		socks_switch = get_vpn_socks_switch(client)
-		socks_switch.stop()
+		socks_switch.stop(1)
 		socks_switch.remove()
 		return restart_vpn_socks_switch(client)
 	
@@ -93,9 +93,10 @@ def restart_vpn_socks_switch(client):
 def connect_to_switch(client, name, port):
 	print(f'Connecting {name} to switch at port {port}')
 	switch = get_vpn_socks_switch(client)
-	code, output = switch.exec_run(f"./goproxy/proxy socks -t tcp -p '0.0.0.0:{port}' -T tcp -P {name}:{port} --log /tmp/{name}.log", tty=True)
-	print(code)
-	print(output)
+	# First ensure that any existing goproxy process on the port is terminated
+	switch.exec_run(f"kill -9 $(lsof -t -i:{port} -sTCP:LISTEN | awk '/goproxy/{{print $1}}' | uniq)")
+	# Then set up proxy chain to container
+	switch.exec_run(f"./goproxy/proxy socks -t tcp -p '0.0.0.0:{port}' -T tcp -P {name}:{port} --log /tmp/{name}.log", detach=True)
 
 def disconnect_all_proxies(client):
 	pass
@@ -139,11 +140,16 @@ def run_vpn_socks_proxy(client, **kwargs):
 	ovpn_auth = kwargs.get('ovpn_auth')
 
 	print(f'Starting {name} with port {port}')
+	
 	# Start the container
-	vpn = client.containers.run(
+	client.containers.run(
 		VPN_SOCKS_PROXY,
 		name = name,
 		network = VPN_SOCKS_NET,
+		volumes = ['/home/andrew/code/scratchpad/docker_proxy/vpn:/vpn'], # this volume makes the .ovpn configs + auth files accessible
+		devices = ['/dev/net/tun:/dev/net/tun'], # this device is necessary for openvpn to set up the tunnel
+		cap_add = ['NET_ADMIN'], # this is the minimum capability to allow connection to vpn
+		sysctls = {'net.ipv6.conf.all.disable_ipv6': 0}, # ipv6 is broken
 		restart_policy = {'name': 'always'},
 		environment = {
 			'OVPN': ovpn,
@@ -151,13 +157,6 @@ def run_vpn_socks_proxy(client, **kwargs):
 			'PORT': port
 		},
 		detach = True
-	)
-	# Reset socks_net connection to set alias
-	socks_net = get_vpn_socks_net(client)
-	socks_net.disconnect(vpn)
-	socks_net.connect(
-		vpn,
-		aliases = [name]
 	)
 
 	# Connect to switch
@@ -178,10 +177,10 @@ def start_random_proxies(client, limit=5):
 	ovpns = os.listdir('./vpn/hma')
 	ovpn_choice = [ovpns[random.randint(0, len(ovpns))] for _ in range(limit)]
 	configs = [{
-		'name': 'vpn_proxy_' + '_'.join(ovpn.split('.')[:2]).lower(),
-		'ovpn': ovpn,
+		'name': 'vpn_proxy_' + ''.join(c for c in '_'.join(ovpn.split('.')[:2]).lower() if c.isalnum()),
+		'ovpn': f'hma/{ovpn}',
 		'ovpn_auth': 'hma1',
-		'port': i + 100
+		'port': i + 50100
 	} for i, ovpn in enumerate(ovpn_choice)]
 
 	# Start the proxies
@@ -195,5 +194,5 @@ def start_random_proxies(client, limit=5):
 if __name__ == '__main__':
 	client = docker.from_env()
 	# create_vpn_socks_net(client)
-	# rebiuld_vpn_socks_switch(client)
+	# restart_vpn_socks_switch(client)
 	start_random_proxies(client)
