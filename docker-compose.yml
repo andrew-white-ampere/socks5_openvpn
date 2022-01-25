@@ -7,46 +7,61 @@ services:
       dockerfile: Dockerfile-switch
     cap_add:
       - NET_ADMIN
-    network_mode: host
+    ports:
+      - "50000-50999:50000-50999"
+    networks:
+      default:
+      socks_net:
+        ipv4_address: 10.58.0.2
     restart: always
-  gb_1:
+  vpn_1:
     build:
       context: .
-      dockerfile: Dockerfile-gb
+      dockerfile: Dockerfile-vpn
     cap_add:
       - NET_ADMIN
     devices:
       - /dev/net/tun
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=0
+    volumes:
+      - "./vpn:/vpn"
     networks:
       socks_net:
-        ipv4_address: 172.22.7.2
+        ipv4_address: 10.58.0.3
     env_file:
       - .env
     environment:
-      - OVPN=uk
-  br_1:
+      - OVPN=hma/USA.Delaware.Wilmington.TCP.ovpn
+      - OVPN_AUTH=hma1
+      - PORT=50000
+  vpn_2:
     build:
       context: .
-      dockerfile: Dockerfile-br
+      dockerfile: Dockerfile-vpn
     cap_add:
       - NET_ADMIN
     devices:
       - /dev/net/tun
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=0
+    volumes:
+      - "./vpn:/vpn"
     networks:
       socks_net:
-        ipv4_address: 172.22.2.18
+        ipv4_address: 10.58.0.4
     env_file:
       - .env
     environment:
-      - OVPN=brazil
+      - OVPN=hma/Croatia.Zagreb.TCP.ovpn
+      - OVPN_AUTH=hma1
+      - PORT=50001
 
 networks:
   socks_net:
+    driver: bridge
     ipam:
-      driver: default
       config:
-        - subnet: 172.22.0.0/16
+        - subnet: "10.58.0.0/16"
+          ip_range: "10.58.255.255/16"
+          gateway: "10.58.0.1"
