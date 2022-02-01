@@ -1,0 +1,16 @@
+FROM alpine:3.15.0
+
+RUN apk update && \
+    apk add wireguard-tools
+
+# Modify wg-quick so it doesn't die without --privileged
+RUN sed -i 's/cmd sysctl -q net.ipv4.conf.all.src_valid_mark=1/ true/' /usr/bin/wg-quick
+
+# Pull + set up goproxy
+RUN mkdir goproxy && \
+    wget https://github.com/snail007/goproxy/releases/download/v11.4/proxy-linux-amd64.tar.gz -O goproxy/proxy.tar.gz && \
+    cd goproxy && tar -xvf proxy.tar.gz && chmod +x proxy
+
+# Copy + execute startup script
+COPY dockerfiles/startup_wg.sh /startup.sh
+CMD ["/bin/sh", "/startup.sh"]

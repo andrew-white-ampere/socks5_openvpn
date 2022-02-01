@@ -3,3 +3,4 @@ venv/
 secret/
 .env
 ssh/
+vpn/wg/conf/

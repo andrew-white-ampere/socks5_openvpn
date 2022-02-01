@@ -1,65 +1,75 @@
 version: '3'
 
 services:
-  switch:
+  wg_1:
     build:
       context: .
-      dockerfile: Dockerfile-switch
-    ports:
-      - "50000-50999:50000-50999"
-    networks:
-      default:
-      socks_net:
-        ipv4_address: 10.58.0.2
-    restart: always
-  vpn_1:
-    build:
-      context: .
-      dockerfile: Dockerfile-vpn
+      dockerfile: dockerfiles/Dockerfile-wg
     cap_add:
       - NET_ADMIN
-    devices:
-      - /dev/net/tun
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.src_valid_mark=1
     volumes:
       - "./vpn:/vpn"
-    networks:
-      socks_net:
-        ipv4_address: 10.58.0.3
-    env_file:
-      - .env
     environment:
-      - OVPN=hma/USA.Delaware.Wilmington.TCP.ovpn
-      - OVPN_AUTH=hma1
-      - PORT=50000
-  vpn_2:
+      - "WG_CONF=vpn/wg/conf/tg_uk_1.conf"
+      - "PORT=50102"
+  wg_2:
     build:
       context: .
-      dockerfile: Dockerfile-vpn
+      dockerfile: dockerfiles/Dockerfile-wg
     cap_add:
       - NET_ADMIN
-    devices:
-      - /dev/net/tun
     sysctls:
       - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.src_valid_mark=1
     volumes:
       - "./vpn:/vpn"
-    networks:
-      socks_net:
-        ipv4_address: 10.58.0.4
-    env_file:
-      - .env
     environment:
-      - OVPN=hma/Croatia.Zagreb.TCP.ovpn
-      - OVPN_AUTH=hma1
-      - PORT=50001
-
-networks:
-  socks_net:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: "10.58.0.0/16"
-          ip_range: "10.58.255.255/16"
-          gateway: "10.58.0.1"
+      - "WG_CONF=vpn/wg/conf/tg_uk_2.conf"
+      - "PORT=50104"
+  wg_3:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile-wg
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.src_valid_mark=1
+    volumes:
+      - "./vpn:/vpn"
+    environment:
+      - "WG_CONF=vpn/wg/conf/tg_uk_3.conf"
+      - "PORT=50105"
+  wg_4:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile-wg
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.src_valid_mark=1
+    volumes:
+      - "./vpn:/vpn"
+    environment:
+      - "WG_CONF=vpn/wg/conf/tg_uk_4.conf"
+      - "PORT=50106"
+  wg_5:
+    build:
+      context: .
+      dockerfile: dockerfiles/Dockerfile-wg
+    cap_add:
+      - NET_ADMIN
+    sysctls:
+      - net.ipv6.conf.all.disable_ipv6=0
+      - net.ipv4.conf.all.src_valid_mark=1
+    volumes:
+      - "./vpn:/vpn"
+    environment:
+      - "WG_CONF=vpn/wg/conf/tg_uk_5.conf"
+      - "PORT=50107"
+    
+    
