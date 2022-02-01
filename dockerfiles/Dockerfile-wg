@@ -12,5 +12,5 @@ RUN mkdir goproxy && \
     cd goproxy && tar -xvf proxy.tar.gz && chmod +x proxy
 
 # Copy + execute startup script
-COPY dockerfiles/startup_wg.sh /startup.sh
+COPY startup_wg.sh /startup.sh
 CMD ["/bin/sh", "/startup.sh"]

@@ -2,8 +2,8 @@ import docker
 
 ### Network
 
-SOCKS_NET = 'ovpn_socks_net'
-ovpn_socks_IPAM = docker.types.IPAMConfig(
+SOCKS_NET = 'socks_net'
+SOCKS_IPAM = docker.types.IPAMConfig(
 	pool_configs = [docker.types.IPAMPool(
 		subnet = "10.58.0.0/16",
 		iprange  =  "10.58.255.255/16",
@@ -11,24 +11,24 @@ ovpn_socks_IPAM = docker.types.IPAMConfig(
 	)]
 )
 
-def get_ovpn_socks_net(client):
+def get_socks_net(client):
 	try:
 		return client.networks.get(SOCKS_NET)
 	except docker.errors.NotFound:
 		return None
 
-def create_ovpn_socks_net(client):
-	if get_ovpn_socks_net(client):
+def create_socks_net(client):
+	if get_socks_net(client):
 		print(f'Network {SOCKS_NET} already exists.\nSkipping.')
 		return
 	client.networks.create(
 		SOCKS_NET,
 		driver = 'bridge',
-		ipam = ovpn_socks_IPAM
+		ipam = SOCKS_IPAM
 	)
 
 def connect_to_socks_net(client, container):
-	socks_net = get_ovpn_socks_net(client)
+	socks_net = get_socks_net(client)
 	if not socks_net:
 		print(f'Cannot connect {container} to socks_net, it doesn''t exist')
 	socks_net.connect(
@@ -40,32 +40,32 @@ def connect_to_socks_net(client, container):
 
 ### Switch
 
-ovpn_socks_SWITCH = 'ovpn_socks_switch'
+SOCKS_SWITCH = 'socks_switch'
 
-def build_ovpn_socks_switch(client):
+def build_socks_switch(client):
 	image, log = client.images.build(
 		path='./dockerfiles', 
 		dockerfile='Dockerfile-switch', 
-		tag=ovpn_socks_SWITCH
+		tag=SOCKS_SWITCH
 	)
 	return ''.join(str(v) for l in log for v in l.values())
 
-def rebiuld_ovpn_socks_switch(client):
-	print(f'Rebuilding {ovpn_socks_SWITCH}')
-	stop_ovpn_socks_switch(client)
-	log = build_ovpn_socks_switch(client)
+def rebiuld_socks_switch(client):
+	print(f'Rebuilding {SOCKS_SWITCH}')
+	stop_socks_switch(client)
+	log = build_socks_switch(client)
 	print(log)
 
-def get_ovpn_socks_switch(client):
+def get_socks_switch(client):
 	try:
-		return client.containers.get(ovpn_socks_SWITCH)
+		return client.containers.get(SOCKS_SWITCH)
 	except docker.errors.NotFound:
-		print(f'{ovpn_socks_SWITCH} not found!')
+		print(f'{SOCKS_SWITCH} not found!')
 		return None
 
-def stop_ovpn_socks_switch(client):
-	print(f'Stopping {ovpn_socks_SWITCH}')
-	socks_switch = get_ovpn_socks_switch(client)
+def stop_socks_switch(client):
+	print(f'Stopping {SOCKS_SWITCH}')
+	socks_switch = get_socks_switch(client)
 	if not socks_switch:
 		return
 	socks_switch.stop(timeout=1)
@@ -73,14 +73,14 @@ def stop_ovpn_socks_switch(client):
 
 
 
-def restart_ovpn_socks_switch(client):
+def restart_socks_switch(client):
 	# Check if switch already running, if so, stop then retry
-	if any(c.name == ovpn_socks_SWITCH for c in client.containers.list()):
-		stop_ovpn_socks_switch(client)
-		return restart_ovpn_socks_switch(client)
+	if any(c.name == SOCKS_SWITCH for c in client.containers.list()):
+		stop_socks_switch(client)
+		return restart_socks_switch(client)
 
 	# If socks_net does not exist, abort
-	socks_net = get_ovpn_socks_net(client)
+	socks_net = get_socks_net(client)
 	if not socks_net:
 		print(f'{SOCKS_NET} network does not exist.\nExiting')
 		exit(1)
@@ -89,8 +89,8 @@ def restart_ovpn_socks_switch(client):
 
 	# Start the container
 	switch = client.containers.run(
-		ovpn_socks_SWITCH,
-		name = ovpn_socks_SWITCH,
+		SOCKS_SWITCH,
+		name = SOCKS_SWITCH,
 		network = 'default',
 		ports = {p: p for p in range(50000, 51000)},
 		restart_policy = {'name': 'always'},
@@ -104,7 +104,7 @@ def restart_ovpn_socks_switch(client):
 
 def connect_to_switch(client, name, port):
 	print(f'Connecting {name} to switch at port {port}')
-	switch = get_ovpn_socks_switch(client)
+	switch = get_socks_switch(client)
 	# First ensure that any existing goproxy process on the port is terminated
 	switch.exec_run(f"kill -9 $(lsof -t -i:{port} -sTCP:LISTEN | awk '/goproxy/{{print $1}}' | uniq)")
 	# Then set up proxy chain to container
@@ -112,7 +112,7 @@ def connect_to_switch(client, name, port):
 
 def disconnect_all_proxies(client):
 	print('Disconnecting all proxies from switch')
-	switch = get_ovpn_socks_switch(client)
+	switch = get_socks_switch(client)
 	if not switch:
 		print('No switch instance running. Skipping.')
 		return
@@ -289,7 +289,7 @@ def restart_system(client):
 	# Stop any running vpn containers
 	stop_all_ovpn_socks_proxies(client)
 	# Restart switch
-	restart_ovpn_socks_switch(client)
+	restart_socks_switch(client)
 
 ###
 
@@ -298,35 +298,27 @@ def restart_system(client):
 if __name__ == '__main__':
 	client = docker.from_env()
 	# restart_system(client)
-	# stop_ovpn_socks_switch(client)
-	# create_ovpn_socks_net(client)
-	# # restart_ovpn_socks_switch(client)
+	# stop_socks_switch(client)
+	create_socks_net(client)
+	# restart_socks_switch(client)
 	# stop_all_ovpn_socks_proxies(client)
 	# disconnect_all_proxies(client)
-	# # rebiuld_ovpn_socks_switch(client)
+	rebiuld_socks_switch(client)
 	
-	# # build_ovpn_socks_proxy(client)
-	# # start_random_proxies(client, limit=11)
-	# # config = {
-	# # 	'name': 'vpn_proxy_uk',
-	# # 	'ovpn': f'hma/UK.TCP.ovpn',
-	# # 	'ovpn_auth': 'hma1',
-	# # 	'port': 50100
-	# # }
-	# # run_ovpn_socks_proxy(client, **config)
-	# restart_ovpn_socks_switch(client)
+	# build_ovpn_socks_proxy(client)
+	# start_random_proxies(client, limit=11)
+	# config = {
+	# 	'name': 'vpn_proxy_uk',
+	# 	'ovpn': f'hma/UK.TCP.ovpn',
+	# 	'ovpn_auth': 'hma1',
+	# 	'port': 50100
+	# }
+	# run_ovpn_socks_proxy(client, **config)
+	restart_socks_switch(client)
 	# wg_1 = client.containers.get('docker_proxy_wg_1_1')
 	# connect_to_socks_net(client, wg_1)
 	# connect_to_switch(client, 'docker_proxy_wg_1_1', 50102)]
-	wg_2 = client.containers.get('docker_proxy_wg_2_1')
-	connect_to_socks_net(client, wg_2)
-	connect_to_switch(client, 'docker_proxy_wg_2_1', 50104)
-	wg_3 = client.containers.get('docker_proxy_wg_3_1')
-	connect_to_socks_net(client, wg_3)
-	connect_to_switch(client, 'docker_proxy_wg_3_1', 50105)
-	wg_4 = client.containers.get('docker_proxy_wg_4_1')
-	connect_to_socks_net(client, wg_4)
-	connect_to_switch(client, 'docker_proxy_wg_4_1', 50106)
-	wg_5 = client.containers.get('docker_proxy_wg_5_1')
-	connect_to_socks_net(client, wg_5)
-	connect_to_switch(client, 'docker_proxy_wg_5_1', 50107)
+	stop_all_wg_socks_proxies(client)
+	disconnect_all_proxies(client)
+	for i in range(1, 10):
+		run_wg_socks_proxy(client, name=f'wg_proxy_uk_{i}', wg_conf=f'vpn/wg/conf/tg_uk_{i}.conf', port=50058)
